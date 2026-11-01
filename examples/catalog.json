@@ -1,0 +1,26 @@
+{
+  "format": "atelier-source-v1",
+  "id": "catalog-example",
+  "name": "目录导入测试（1 像素测试图）",
+  "version": "1.0.0",
+  "type": "catalog",
+  "comics": [
+    {
+      "id": "sample",
+      "title": "源格式测试",
+      "author": "测试作者",
+      "description": "用于验证导入、搜索、章节阅读和下载。图片为 1 像素样本，并非漫画。",
+      "cover": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB1sAAAAASUVORK5CYII=",
+      "chapters": [
+        {
+          "id": "1",
+          "title": "测试章节",
+          "pages": [
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB1sAAAAASUVORK5CYII=",
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB1sAAAAASUVORK5CYII="
+          ]
+        }
+      ]
+    }
+  ]
+}

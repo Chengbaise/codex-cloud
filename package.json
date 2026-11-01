@@ -1,0 +1,52 @@
+{
+  "name": "atelier-image-browser",
+  "version": "0.2.1",
+  "description": "支持自定义漫画源的桌面漫画阅读器",
+  "main": "src/main.cjs",
+  "author": "Chengbaise",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "check": "node --check src/main.cjs && node --check src/preload.cjs && node --check src/renderer.js && node --check src/comics.js && node --check src/sources.cjs && node --check src/source-service.cjs",
+    "pack": "electron-builder --dir",
+    "dist:win": "electron-builder --win nsis",
+    "dist:linux": "electron-builder --linux AppImage",
+    "dist:mac": "electron-builder --mac dmg",
+    "test:desktop": "electron scripts/smoke.cjs",
+    "dist:win:zip": "electron-builder --win zip --config.win.signAndEditExecutable=false",
+    "test:comics": "electron scripts/comics-smoke.cjs"
+  },
+  "build": {
+    "appId": "xyz.chengbaise.atelier",
+    "productName": "拾图",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Graphics"
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
