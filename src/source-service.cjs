@@ -10,9 +10,10 @@ class SourceService{
  save(name,data){const target=path.join(this.root,name+'.json');fs.writeFileSync(target+'.tmp',JSON.stringify(data,null,2));fs.renameSync(target+'.tmp',target);}
  list(){return this.sources.map(({comics,...s})=>({...s,count:comics?.length}));}
  source(id){const s=this.sources.find(s=>s.id===id);if(!s)throw Error('源不存在，请先导入');return s;}
- async fetch(url,{image=false,signal}={}){
+ async fetch(url,{image=false,signal,timeoutMs=30000}={}){
   if(!safeUrl(url))throw Error('仅允许 HTTPS 地址');
-  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),30000);const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)controller.abort();
+  if(!Number.isFinite(timeoutMs)||timeoutMs<=0||timeoutMs>120000)throw Error('请求超时时间无效');
+  let timedOut=false;const controller=new AbortController();const timer=setTimeout(()=>{timedOut=true;controller.abort();},timeoutMs);const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)controller.abort();
   try{for(let i=0;i<6;i++){
    const r=await this.session.fetch(url,{redirect:'manual',signal:controller.signal});
    if(r.status>=300&&r.status<400){const location=r.headers.get('location');if(!location)throw Error('源重定向缺少 Location');const next=new URL(location,url).href;if(!safeUrl(next))throw Error('不允许的重定向');await r.body?.cancel();url=next;continue;}
@@ -21,8 +22,17 @@ class SourceService{
    if(image&&!['image/jpeg','image/png','image/gif','image/webp','image/avif'].includes(mime))throw Error('下载响应不是支持的图片');
    const limit=image?30*1024*1024:8*1024*1024;let size=0;const buffers=[];
    for await(const chunk of r.body){size+=chunk.length;if(size>limit){controller.abort();throw Error('源响应超过大小限制');}buffers.push(Buffer.from(chunk));}
-   const bytes=Buffer.concat(buffers);return image?{bytes,mime}:JSON.parse(bytes.toString('utf8'));
-  }throw Error('源重定向过多');}finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
+   const bytes=Buffer.concat(buffers);if(image)return {bytes,mime};
+   const content=bytes.toString('utf8').replace(/^\uFEFF/,'');
+   if(mime==='text/html'||/^\s*<(?:!doctype|html)/i.test(content))throw Error('链接返回的是网页，不是漫画源 JSON。请使用源清单的直接下载地址。');
+   try{return JSON.parse(content);}catch{throw Error('链接没有返回有效的 JSON。请使用 atelier-source-v1 源清单，不能导入网页或 Venera JS 脚本。');}
+  }throw Error('源重定向过多');}catch(error){
+   if(timedOut)throw Error(`请求超时（${timeoutMs/1000} 秒）。请检查网络或源链接，也可先下载 JSON 文件再从文件导入。`);
+   if(signal?.aborted)throw Error('请求已取消');
+   if(error.name==='AbortError')throw Error('源连接被中止。请检查网络或源站状态后重试；也可下载 JSON 文件后导入。');
+   if(/net::ERR_|fetch failed|Failed to fetch/i.test(error.message||''))throw Error('无法连接源站。请检查网络、系统代理及源链接；此处需要 JSON 清单地址，不能使用普通网站首页。');
+   throw error;
+  }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
  }
  async import(value){const parsed=validateSource(value);if(this.sources.some(s=>s.id===parsed.id))throw Error('源 ID 已存在，请先删除旧源再导入');this.sources.push(parsed);try{this.save('sources',this.sources.filter(s=>s.id!=='demo'));}catch(e){this.sources.pop();throw e;}return this.list();}
  remove(id){if(id==='demo')throw Error('内置演示源不能删除');const before=this.sources;this.sources=this.sources.filter(s=>s.id!==id);try{this.save('sources',this.sources.filter(s=>s.id!=='demo'));}catch(e){this.sources=before;throw e;}return this.list();}

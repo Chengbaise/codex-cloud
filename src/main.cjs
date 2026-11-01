@@ -57,17 +57,32 @@ app.whenReady().then(() => {
   const localSender = event => event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame;
   const handle = (name, fn) => ipcMain.handle(name, (event,...args)=>{if(!localSender(event)) throw new Error('无权调用'); return fn(...args);});
   handle('sources-list',()=>sourceService.list());
+  let importController=null;
+  handle('sources-import-cancel',()=>{if(importController){importController.abort();return true;}return false;});
   handle('sources-import',async(kind,value)=>{
-    let data;
-    if(kind==='file'){
-      const result=await dialog.showOpenDialog(win,{properties:['openFile'],filters:[{name:'漫画源 JSON',extensions:['json']}]});
-      if(result.canceled)return sourceService.list();
-      if(fs.statSync(result.filePaths[0]).size>8*1024*1024)throw Error('源文件超过 8 MB');
-      data=JSON.parse(fs.readFileSync(result.filePaths[0],'utf8'));
-    }else if(kind==='url'){if(typeof value!=='string'||value.length>2000)throw Error('源地址无效');data=await sourceService.fetch(value);}
-    else if(kind==='text'){if(typeof value!=='string'||value.length>8*1024*1024)throw Error('源内容过大');data=JSON.parse(value);}
-    else throw Error('不支持的导入方式');
-    return sourceService.import(data);
+    if(importController)return {ok:false,error:'已有源正在导入，请等待完成或取消后重试。'};
+    let controller;
+    try{
+      let data;
+      if(kind==='file'){
+        const result=await dialog.showOpenDialog(win,{properties:['openFile'],filters:[{name:'漫画源 JSON',extensions:['json']}]});
+        if(result.canceled)return {ok:true,sources:sourceService.list()};
+        if(fs.statSync(result.filePaths[0]).size>8*1024*1024)throw Error('源文件超过 8 MB');
+        try{data=JSON.parse(fs.readFileSync(result.filePaths[0],'utf8').replace(/^\uFEFF/,''));}catch(error){if(error instanceof SyntaxError)throw Error('源文件不是有效的 JSON，请检查文件格式。');throw error;}
+      }else if(kind==='url'){
+        if(typeof value!=='string'||value.length>2000)throw Error('源地址无效');
+        controller=new AbortController();importController=controller;
+        data=await sourceService.fetch(value.trim(),{timeoutMs:90000,signal:controller.signal});
+        if(controller.signal.aborted)return {ok:false,cancelled:true,error:'导入已取消'};
+      }else if(kind==='text'){
+        if(typeof value!=='string'||value.length>8*1024*1024)throw Error('源内容过大');
+        try{data=JSON.parse(value.replace(/^\uFEFF/,''));}catch{throw Error('粘贴的内容不是有效的 JSON。');}
+      }else throw Error('不支持的导入方式');
+      return {ok:true,sources:await sourceService.import(data)};
+    }catch(error){
+      const cancelled=controller?.signal.aborted===true;
+      return {ok:false,cancelled,error:cancelled?'导入已取消':error.message||'无法导入漫画源'};
+    }finally{if(controller&&importController===controller)importController=null;}
   });
   handle('sources-remove',id=>sourceService.remove(id));
   handle('comic',async(action,p={})=>{

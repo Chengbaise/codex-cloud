@@ -1,7 +1,12 @@
 const {contextBridge,ipcRenderer}=require('electron');
 contextBridge.exposeInMainWorld('desktop',{
   sources:()=>ipcRenderer.invoke('sources-list'),
-  importSource:(kind,value)=>ipcRenderer.invoke('sources-import',kind,value),
+  importSource:async(kind,value)=>{
+    const result=await ipcRenderer.invoke('sources-import',kind,value);
+    if(!result.ok)throw Error(result.error);
+    return result.sources;
+  },
+  cancelImport:()=>ipcRenderer.invoke('sources-import-cancel'),
   removeSource:id=>ipcRenderer.invoke('sources-remove',id),
   comic:(action,payload)=>ipcRenderer.invoke('comic',action,payload),
   navigate:action=>ipcRenderer.invoke('navigate',action),

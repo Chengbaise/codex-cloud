@@ -86,7 +86,7 @@
 {"pages":["https://your-domain.example/001.jpg","https://your-domain.example/002.jpg"]}
 ```
 
-图片由 Electron 的隔离会话请求，不受网页 CORS 限制；HTTPS、图片 MIME 类型与大小仍会校验。JSON 响应最大 8 MB，单张在线图片最大 30 MB，请求超时 30 秒。每章最多 3000 页。
+图片由 Electron 的隔离会话请求，不受网页 CORS 限制；HTTPS、图片 MIME 类型与大小仍会校验。JSON 响应最大 8 MB，单张在线图片最大 30 MB，一般请求超时 30 秒，网址导入源清单最多等待 90 秒，可在界面取消。每章最多 3000 页。
 
 ## 网站接入边界
 

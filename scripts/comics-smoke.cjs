@@ -2,7 +2,11 @@ const {app,BrowserWindow,session}=require('electron');const fs=require('node:fs'
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'atelier-comics-'));app.setPath('userData',path.join(root,'profile'));app.setPath('downloads',root);
 const wait=ms=>new Promise(r=>setTimeout(r,ms));async function until(fn){for(let i=0;i<150;i++){if(await fn())return;await wait(100);}throw Error('Timed out');}
 app.whenReady().then(()=>{session.fromPartition('persist:gallery').protocol.handle('https',request=>{
- const u=new URL(request.url);if(u.pathname==='/browse')return Response.json({items:[{id:'live',title:'API 样本漫画',author:'样本画师'}],hasMore:false});
+ const u=new URL(request.url);
+ if(u.pathname==='/source.html')return new Response('<!doctype html><title>Website home</title>',{headers:{'Content-Type':'text/html'}});
+ if(u.pathname==='/slow-source.json')return new Promise(resolve=>setTimeout(()=>resolve(Response.json({})),3000));
+ if(u.pathname==='/source.json')return Response.json({format:'atelier-source-v1',id:'url-fixture',name:'网址导入测试源',type:'catalog',comics:[{id:'book',title:'网址测试',chapters:[{id:'chapter',title:'第一章',pages:['https://fixture.invalid/image.png']}]}]});
+if(u.pathname==='/browse')return Response.json({items:[{id:'live',title:'API 样本漫画',author:'样本画师'}],hasMore:false});
  if(u.pathname==='/comic/live')return Response.json({id:'live',title:'API 样本漫画',author:'样本画师',chapters:[{id:'first',title:'样本第一章'}]});
  if(u.pathname==='/chapter/first')return Response.json({pages:['https://fixture.invalid/image.png']});
  return new Response(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB1sAAAAASUVORK5CYII=','base64'),{headers:{'Content-Type':'image/png'}});
@@ -41,6 +45,17 @@ app.whenReady().then(async()=>{try{
  await js('document.querySelector(".comic-card").click()');await until(()=>js('!!document.querySelector(".chapters")'));
  await js('document.querySelector(".chapter-row button").click()');await until(()=>js('document.querySelector(".reader-image")?.naturalWidth===1'));
  await js('document.getElementById("sources").click()');await until(()=>js('document.getElementById("source-list").textContent.includes("测试 API 源")'));
+ await js('document.getElementById("source-url").value="https://fixture.invalid/source.html";document.getElementById("import-url").click()');
+ await until(()=>js('document.getElementById("toast").textContent.includes("不是漫画源 JSON")'));
+ assert.equal(await js('document.getElementById("toast").textContent.includes("Error invoking remote method")'),false);
+ assert.equal(await js('document.getElementById("import-url").disabled'),false);
+ await js('document.getElementById("source-url").value="https://fixture.invalid/slow-source.json";document.getElementById("import-url").click()');
+ await until(()=>js('!document.getElementById("cancel-import").hidden'));
+ await js('document.getElementById("cancel-import").click()');
+ await until(()=>js('document.getElementById("toast").textContent.includes("导入已取消")'));
+ assert.equal(await js('document.getElementById("import-url").disabled'),false);
+ await js('document.getElementById("source-url").value="https://fixture.invalid/source.json";document.getElementById("import-url").click()');
+ await until(()=>js('document.getElementById("source-list").textContent.includes("网址导入测试源")'));
  fs.writeFileSync(path.join(root,'sources.png'),(await wc.capturePage()).toPNG());
  const stored=JSON.parse(fs.readFileSync(path.join(root,'profile','comic-data','sources.json')));assert.equal(stored[0].id,'api-fixture');
  console.log('PASS: demo browse, chapters, favorite, progress, single/strip reader, chapter download, source import and persistence, real Electron session JSON API and image load.');console.log('Artifacts:',root);app.exit(0);

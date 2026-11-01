@@ -1,6 +1,6 @@
 {
   "name": "atelier-image-browser",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "支持自定义漫画源的桌面漫画阅读器",
   "main": "src/main.cjs",
   "author": "Chengbaise",
