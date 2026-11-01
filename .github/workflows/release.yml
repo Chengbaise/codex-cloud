@@ -1,0 +1,70 @@
+name: Release Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag, for example v0.2.1'
+        required: true
+        default: 'v0.2.1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Validate version and release notes
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') { throw 'Expected a vMAJOR.MINOR.PATCH tag' }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($env:RELEASE_TAG -ne "v$version") { throw 'Tag does not match package.json' }
+          if (!(Test-Path "docs/releases/$env:RELEASE_TAG.md")) { throw 'Missing release notes' }
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test
+      - name: Check syntax
+        run: npm run check
+      - name: Build Windows ZIP
+        run: npm run dist:win:zip
+      - name: Prepare asset and checksum
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $inputZip = "release/拾图-$version-win.zip"
+          $assetName = "Shitu-$version-Windows-x64.zip"
+          if (!(Test-Path $inputZip)) { throw 'Windows ZIP was not produced' }
+          Move-Item $inputZip "release/$assetName"
+          $hash = (Get-FileHash "release/$assetName" -Algorithm SHA256).Hash.ToLowerInvariant()
+          [System.IO.File]::WriteAllText("$pwd/release/SHA256SUMS.txt", "$hash  $assetName`n", [System.Text.UTF8Encoding]::new($false))
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          gh release create $env:RELEASE_TAG "release/Shitu-$version-Windows-x64.zip" "release/SHA256SUMS.txt" --verify-tag --repo $env:GITHUB_REPOSITORY --title "拾图 $env:RELEASE_TAG" --notes-file "docs/releases/$env:RELEASE_TAG.md" --latest
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publication failed' }

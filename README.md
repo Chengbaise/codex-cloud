@@ -41,7 +41,7 @@ npm start
 
 ### 使用 Windows 打包版
 
-本仓库跟踪源码、文档和示例；`release/` 构建产物与 `node_modules/` 不上传 Git。**目前尚未通过本仓库的 GitHub Releases 发布下载包**，可按下文自行打包。
+本仓库跟踪源码、文档和示例；`release/` 构建产物与 `node_modules/` 不上传 Git。Windows 下载入口：[GitHub Releases](https://github.com/Chengbaise/codex-cloud/releases)。版本标签触发构建，构建成功后会出现对应的 Windows ZIP 与 SHA-256 校验文件；如果尚未看到附件，请查看 [Release 工作流](https://github.com/Chengbaise/codex-cloud/actions/workflows/release.yml) 的运行结果，或按下文自行打包。
 
 获得 Windows ZIP 包后，解压全部文件，运行 `拾图.exe`，并保留同目录的运行时文件。当前构建未配置代码签名证书，尚未执行 Windows 实机验证。
 
@@ -151,6 +151,12 @@ npm run dist:win:zip
 ```
 
 产物位于 `release/`。Linux 上构建 NSIS 需要 Wine；生成 ZIP 不要求 Wine。`npm run pack` 仅生成当前平台的应用目录。Linux/macOS 打包命令已保留，但发行包未验证。
+
+## 发布流程
+
+仓库通过 `.github/workflows/release.yml` 发布 Windows x64 ZIP。更新 `package.json` 与锁文件版本、添加 `docs/releases/v版本号.md` 后，推送对应的 `v版本号` 标签即可触发。工作流在 Windows 上安装依赖、运行自动测试和语法检查、构建 ZIP，然后创建 GitHub Release 并上传 ZIP 与 `SHA256SUMS.txt`。也可以在 Actions 页面选择已有标签手动运行。
+
+工作流使用 GitHub 自动提供的仓库令牌，无需额外配置发布密钥。标签必须与包版本一致，已存在的 Release 不会被自动覆盖。
 
 ## 当前限制
 
